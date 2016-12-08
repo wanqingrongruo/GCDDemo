@@ -8,6 +8,17 @@
 
 import UIKit
 
+
+// 喵大推荐的单例写法
+class MyManager {
+    private static let sharedInstance = MyManager()
+    
+    class var sharedManager: MyManager {
+        return sharedInstance
+    }
+    
+}
+
 class ViewController: UIViewController {
     
     // 学习地址:http://swift.gg/2016/11/30/grand-central-dispatch/
@@ -46,7 +57,24 @@ class ViewController: UIViewController {
         
        // fetchImage()
         
-        useWorkItem()
+       // useWorkItem()
+        
+       // groupQueue()
+        
+       // barrierDemo()
+        
+      //  semaphoreDemo()
+        
+        // MARK: - dispatch_once 废弃 ,建议使用懒加载
+        // 全局常量
+        let constant = MyManager()
+
+        // 全局 variable
+        var variable: MyManager = {
+            let v = MyManager()
+            return v
+        }()
+
         
     }
     
@@ -573,6 +601,8 @@ extension ViewController{
         
         queue.async(execute: workItem) // 便捷使用方法 -- 这句和上面那个一起执行程序会挂,同一个队列针对同一个代码块进行了操作...
         
+       
+        workItem.wait() //  等待 wokItem执行完再继续向下进行
         print("👌 ", value)
         
        // 当一个任务项被调用后，你可以通知主队列（或者任何其它你想要的队列）
@@ -581,4 +611,83 @@ extension ViewController{
         })
     }
 }
+
+// MARK: - DispatchGroup
+
+extension ViewController{
+    
+    func groupQueue(){
+        // 如果想在dispatch_queue中所有的任务执行完成后再做某种操作可以使用DispatchGroup
+        // 将队列放入DispatchGroup
+        let group = DispatchGroup()
+        
+        let queueBook = DispatchQueue(label: "book")
+        queueBook.async(group: group, execute: {
+            // download book
+            print("download book")
+        })
+        
+        let queueVideo = DispatchQueue(label: "video")
+        queueVideo.async(group: group, execute: {
+            // download video
+            print("download video")
+        })
+        
+        group.wait() // 如果有多个并发队列在一个组里，我们想在这些操作执行完了再继续，调用wait
+        
+        group.notify(queue: DispatchQueue.main, execute: {
+            // download successed
+             print("download successed")
+        })
+    }
+   
+
+}
+
+// MARK: - barrier => DispatchWorkItemFlags
+
+extension ViewController{
+    
+    /*
+     假设我们有一个并发的队列用来读写一个数据对象。如果这个队列里的操作是读的，那么可以多个同时进行。如果有写的操作，则必须保证在执行写入操作时，不会有读取操作在执行，必须等待写入完成后才能读取，否则就可能会出现读到的数据不对。在之前我们用dipatch_barrier实现。
+     现在属性放在了DispatchWorkItemFlags里。
+     
+     文／没故事的卓同学（简书作者）
+     原文链接：http://www.jianshu.com/p/fc78dab5736f
+     著作权归作者所有，转载请联系作者获得授权，并标注“简书作者”。
+     */
+    func barrierDemo(){
+        
+        var value = 10
+        let wirte = DispatchWorkItem(qos: .default, flags: .barrier, block:{
+            
+            value += 100
+            print("Please waiting for writing data")
+        })
+        
+        let dataQueue = DispatchQueue(label: "data", qos: .default, attributes: .concurrent)
+        dataQueue.async(execute: wirte)
+        
+        dataQueue.async {
+             print("I am waiting for value = ", value)
+        }
+       
+    }
+    
+}
+
+// MARK: - 信号量dispatch_semaphore_t => DispatchSemaphore
+
+extension ViewController{
+
+    // 为了线程安全的统计数量，我们会使用信号量作计数
+    func semaphoreDemo(){
+        let semaphore = DispatchSemaphore(value: 5)
+        
+        semaphore.wait() // 信号量减一
+        
+        semaphore.signal() // 信号量加一
+    }
+}
+
 
