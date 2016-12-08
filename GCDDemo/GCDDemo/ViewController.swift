@@ -24,22 +24,30 @@ class ViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        
+        // 串行
         // syncSample()
         //asyncSample()
         //queueWithQosSyncSample()
         //queueWithQosAsyncSample()
         
-        
+        //并行
         // conQueueSyncSample()
         // conQueueAsyncSample()
         // conQueueWithQosSyncSample()
         // conQueueWithQosAsyncSample()
         
-        noAutoAction()
-        if let queue = inactiveQueue {
-            queue.activate()
-        }
+        // 手动
+        //        noAutoAction()
+        //        if let queue = inactiveQueue {
+        //            queue.activate()
+        //        }
+        
+       // queueWithDelay()
+        
+       // fetchImage()
+        
+        useWorkItem()
+        
     }
     
     override func didReceiveMemoryWarning() {
@@ -407,11 +415,11 @@ extension ViewController{
     
 }
 
-// MARK: - 其他
+// MARK: - 手动执行
 
 extension ViewController{
     
-    // 手动开启
+    // 程序员手动开启队列 initiallyInactive
     func noAutoAction(){
         
         /*
@@ -455,3 +463,122 @@ extension ViewController{
         
     }
 }
+
+
+// MARK: - 延迟执行
+
+extension ViewController{
+    
+    func queueWithDelay(){
+        
+        let delayQueue = DispatchQueue(label: "com.zhengwenxiang.delay", qos: .userInitiated)
+        print(Date())
+        
+        let additionalTime: DispatchTimeInterval = .seconds(2)
+//        delayQueue.asyncAfter(deadline:  .now() + additionalTime){
+//            print(Date())
+//        }
+        delayQueue.asyncAfter(deadline: .now() + additionalTime, execute:{
+                
+                print(Date())
+        })
+    }
+    
+}
+
+// MARK: - 访问主队列和全局队列
+
+extension ViewController{
+    
+    func globalAndMainQueue(){
+       // let globelQueue = DispatchQueue.global()
+        let globelQueue = DispatchQueue.global(qos: .userInitiated)
+        globelQueue.async {
+            
+            for i in 0...10{
+                print("🇨🇳 ",i)
+            }
+        }
+        
+        
+        DispatchQueue.main.async {
+            // do something
+        }
+        
+    }
+    
+}
+
+// MARK: - download image
+
+extension ViewController{
+    
+    func fetchImage(){
+       
+        let imageUrl = URL(string: "http://www.appcoda.com/wp-content/uploads/2015/12/blog-logo-dark-400.png")!
+        let session = URLSession(configuration: .default)
+        let task = session.dataTask(with: imageUrl, completionHandler:{ (imageData, response, error) in
+            
+            if let data = imageData{
+                print("Did download image data")
+                DispatchQueue.main.async {
+                    self.imageView.image = UIImage(data: data)
+                }
+            }
+            
+            
+        })
+        task.resume()
+//        
+//        let imageURL: URL = URL(string: "http://www.appcoda.com/wp-content/uploads/2015/12/blog-logo-dark-400.png")!
+//        
+//        (URLSession(configuration: URLSessionConfiguration.default)).dataTask(with: imageURL, completionHandler: { (imageData, response, error) in
+//            if let data = imageData {
+//                print("Did download image data")
+//                
+//                DispatchQueue.main.async {
+//                      self.imageView.image = UIImage(data: data)
+//                }
+//              
+//            }
+//        }).resume()
+    }
+    
+}
+
+// MARK: - workItem
+
+extension ViewController{
+    
+    // DispatchWorkItem 是一个代码块，它可以在任意一个队列上被调用，因此它里面的代码可以在后台运行，也可以在主线程运行
+    func useWorkItem(){
+        var value = 10
+        
+        let workItem = DispatchWorkItem{
+            value += 5
+        }
+        
+        
+        
+        workItem.perform()// 使用任务对象 -- 会在主线程中调用任务项,或者使用其他队列来执行
+        
+        print("🈚️ ", value)
+        
+        let queue = DispatchQueue.global()
+//        queue.async {
+//            workItem.perform()
+//             print("😍 ", value)
+//        }
+        
+        
+        queue.async(execute: workItem) // 便捷使用方法 -- 这句和上面那个一起执行程序会挂,同一个队列针对同一个代码块进行了操作...
+        
+        print("👌 ", value)
+        
+       // 当一个任务项被调用后，你可以通知主队列（或者任何其它你想要的队列）
+        workItem.notify(queue: DispatchQueue.main, execute: {
+            print("value = ", value) // 它是在任务项被执行的时候打印的
+        })
+    }
+}
+
